@@ -9,19 +9,24 @@ PAGE_PATH = './pages/'
 MAX_NODE_SIZE = 64
 SEARCH_LEN = 128
 MAX_NODE_COUNT = 220000
-WIN32_OR_64 = 32
+WIN32_OR_64 = 64
 WORD_SIZE = WIN32_OR_64 / 8
 g_dict_paddr_to_vaddr = {}
 g_dict_vaddr_to_paddr = {}
 OBJ_TYPES = ['_EPROCESS','_ETHREAD','_DRIVER_OBJECT','_FILE_OBJECT','_LDR_DATA_TABLE_ENTRY', '_CM_KEY_BODY']
 BUILD_TYPE = 'train'
-
+"""
+    with open("./pages/pointer", 'w') as out_put:
+        for k in addr:
+            if(dict_vaddr_to_dest[k] == 0xFFFFFFFF8160D020):
+                out_put.write(hex(k) + '\t' + hex(dict_vaddr_to_dest[k]) + '\n')
+"""
 def main():
-    print_configure()
     image_path = sys.argv[1]
     if len(sys.argv) >= 3 and sys.argv[2] == 'test':
         global BUILD_TYPE
         BUILD_TYPE = 'test'
+    print_configure()
     image_name = os.path.basename(image_path)
     log(image_name)
 
@@ -29,8 +34,41 @@ def main():
     dict_paddr_to_size, set_vaddr_page = read_available_pages(image_name)
 
     log('find pointer-dest map')
-    dict_vaddr_to_dest = get_pointer_to_dest(image_path, dict_paddr_to_size, set_vaddr_page)
+    #dict_vaddr_to_dest = get_pointer_to_dest(image_path, dict_paddr_to_size, set_vaddr_page)
+    #addr = dict_vaddr_to_dest.keys()
+    #addr.sort()
 
+    log('finish')
+
+    paddr = vaddr_to_paddr(0xFFFF88001C278080)
+    print("paddr: ", hex(paddr))
+    
+    #image_path = sys.argv[1]
+    with open(image_path, 'r') as image:
+        #image.seek(0x1be1e8c0)
+        image.seek(paddr)
+        content = image.read(2048)
+        for i in range(len(content)):
+            tmp = content[i:i+8]
+            if(tmp.endswith("\xff")):
+                dest = is_valid_pointer_64(tmp, 0, set_vaddr_page)
+                if dest: 
+                    i += 8   
+                    print("valid pointer:", tmp, i, hex(dest))
+                #for x in range(8):
+                #    if(ord(tmp[x]) <= 127 and ord(tmp[x]) >= 32):
+                        #i = i + 8
+                        #print("ascii:", x, i, tmp)
+                #        break
+                #if(tmp[x] == tmp[-1]):
+                #    if is_valid_pointer_64(tmp, 0, set_vaddr_page):    
+                #        print("valid pointer:", tmp, i)
+
+        print("pid", content.find("\xce\x08"))
+        print("pid region", content[484:500])
+        print("process name", content[920:928])
+
+'''
     log('get node vaddr list')
     dict_node_vaddr_to_size = segmentation(dict_vaddr_to_dest.keys())
     list_node_vaddr = dict_node_vaddr_to_size.keys()
@@ -68,7 +106,8 @@ def main():
     log('write tesing file')
     file_path = OUTPUT_PATH + 'graph.' + image_name.replace('memdump_', '').replace('.raw', '') + '.all'
     write_output_file(file_path, list_node_vaddr, dict_node_to_ln, dict_node_to_rn, dict_node_to_lp, dict_node_to_rp, dict_node_vaddr_to_size, dict_vaddr_to_vector, dict_vaddr_to_label)
-    log('finish')
+'''    
+    
 
 def write_output_file(file_path, list_node_vaddr, dict_node_to_ln, dict_node_to_rn, dict_node_to_lp, dict_node_to_rp, dict_node_vaddr_to_size, dict_vaddr_to_vector, dict_vaddr_to_label, obj_type=None):#, set_node_vaddr_train):
     output_graph = open(file_path, 'w')
@@ -309,10 +348,10 @@ def is_valid_pointer_32(buf, idx, set_vaddr_page):
     return None
 
 def is_valid_pointer_64(buf, idx, set_vaddr_page):
-    if ord(buf[idx+7]) == 0xff and ord(buf[idx+6]) == 0xff and ord(buf[idx+5]) > 0x08 and ord(buf[idx]) % 4 == 0:
-        dest = (ord(buf[idx+7]) << 56) + (ord(buf[idx+6]) << 48) + (ord(buf[idx+5]) << 40) + (ord(buf[idx+4]) << 32) + (ord(buf[idx+3]) << 24) + (ord(buf[idx+2]) << 16) + (ord(buf[idx+1]) << 8) + ord(buf[idx])
-        if (dest >> 12 << 12) in set_vaddr_page:
-            return dest 
+    #if ord(buf[idx+7]) == 0xff and ord(buf[idx+6]) == 0xff and ord(buf[idx+5]) > 0x08 and ord(buf[idx]) % 4 == 0:
+    dest = (ord(buf[idx+7]) << 56) + (ord(buf[idx+6]) << 48) + (ord(buf[idx+5]) << 40) + (ord(buf[idx+4]) << 32) + (ord(buf[idx+3]) << 24) + (ord(buf[idx+2]) << 16) + (ord(buf[idx+1]) << 8) + ord(buf[idx])
+    if (dest >> 12 << 12) in set_vaddr_page:
+        return dest 
     return None
 
 def get_page_content(available_pages):
@@ -343,6 +382,9 @@ def get_pointer_to_dest(image_path, dict_paddr_to_size, set_vaddr_page):
     dict_vaddr_to_dest = {}
     list_paddr = dict_paddr_to_size.keys()
     list_paddr.sort()
+    with open("./pages/address.txt", 'w') as address_output:
+        for k in list_paddr:
+            address_output.write(hex(k) + '\n')
     with open(image_path, 'r') as image:
         for paddr in list_paddr:
             page_size = dict_paddr_to_size[paddr]
@@ -377,3 +419,5 @@ def log(message):
 
 if __name__ == "__main__":
     main()
+    
+    

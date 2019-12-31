@@ -6,7 +6,7 @@ import volatility.plugins.taskmods as taskmods
 from time import gmtime, strftime
 
 PAGES_OUTPUT_PATH = '../create_memory_graphs/pages/'
-WIN32_OR_64 = 32
+WIN32_OR_64 = 64
 
 class get_physical_pages(taskmods.DllList):
     '''Get page talbe mapping information'''
@@ -42,12 +42,12 @@ class get_physical_pages(taskmods.DllList):
         self.kernel_address_space = utils.load_as(self._config)
         available_pages = self.kernel_address_space.get_available_pages()
 
-        #self.log('Get continuous pages')
-        #dict_page_addr_to_size = self.get_continuous_pages(available_pages)
-        dict_page_addr_to_size = {}
-        for addr, size in available_pages:
-            if addr > 0x80000000:
-                dict_page_addr_to_size[addr] = size
+        self.log('Get continuous pages')
+        dict_page_addr_to_size = self.get_continuous_pages(available_pages)
+        #dict_page_addr_to_size = {}
+        #for addr, size in available_pages:
+            #if addr > 0x80000000:
+        #    dict_page_addr_to_size[addr] = size
 
         with open(PAGES_OUTPUT_PATH + 'pages.' + image_name, 'w') as output:
             list_addr = dict_page_addr_to_size.keys()
