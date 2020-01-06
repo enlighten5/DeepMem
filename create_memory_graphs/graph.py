@@ -13,6 +13,11 @@ WIN32_OR_64 = 64
 WORD_SIZE = WIN32_OR_64 / 8
 g_dict_paddr_to_vaddr = {}
 g_dict_vaddr_to_paddr = {}
+
+valid_pointer = {}
+valid_comm = {}
+valid_int = {}
+
 OBJ_TYPES = ['_EPROCESS','_ETHREAD','_DRIVER_OBJECT','_FILE_OBJECT','_LDR_DATA_TABLE_ENTRY', '_CM_KEY_BODY']
 BUILD_TYPE = 'train'
 """
@@ -38,35 +43,15 @@ def main():
     #addr = dict_vaddr_to_dest.keys()
     #addr.sort()
 
-    log('finish')
+    
 
     paddr = vaddr_to_paddr(0xFFFF88001C278080)
     print("paddr: ", hex(paddr))
-    
-    #image_path = sys.argv[1]
-    with open(image_path, 'r') as image:
-        #image.seek(0x1be1e8c0)
-        image.seek(paddr)
-        content = image.read(2048)
-        for i in range(len(content)):
-            tmp = content[i:i+8]
-            if(tmp.endswith("\xff")):
-                dest = is_valid_pointer_64(tmp, 0, set_vaddr_page)
-                if dest: 
-                    i += 8   
-                    print("valid pointer:", tmp, i, hex(dest))
-                #for x in range(8):
-                #    if(ord(tmp[x]) <= 127 and ord(tmp[x]) >= 32):
-                        #i = i + 8
-                        #print("ascii:", x, i, tmp)
-                #        break
-                #if(tmp[x] == tmp[-1]):
-                #    if is_valid_pointer_64(tmp, 0, set_vaddr_page):    
-                #        print("valid pointer:", tmp, i)
+    keys = dict_paddr_to_size.keys()
+    keys.sort()
+    extract_info(image_path, paddr, 4096, set_vaddr_page)
 
-        print("pid", content.find("\xce\x08"))
-        print("pid region", content[484:500])
-        print("process name", content[920:928])
+    log('finish')
 
 '''
     log('get node vaddr list')
@@ -107,7 +92,85 @@ def main():
     file_path = OUTPUT_PATH + 'graph.' + image_name.replace('memdump_', '').replace('.raw', '') + '.all'
     write_output_file(file_path, list_node_vaddr, dict_node_to_ln, dict_node_to_rn, dict_node_to_lp, dict_node_to_rp, dict_node_vaddr_to_size, dict_vaddr_to_vector, dict_vaddr_to_label)
 '''    
-    
+
+def extract_info(image_path, paddr, size, set_vaddr_page):
+    global valid_pointer
+    global valid_comm
+    global valid_int
+    with open(image_path, 'r') as image:
+        image.seek(paddr)
+        content = image.read(size)
+        #for i in range(len(content)):
+        i = 0
+        while i < len(content):
+            tmp = content[i:i+8]
+            if(tmp.endswith("\xff\xff")):
+                if not len(tmp)==8:
+                    break
+                dest = is_valid_pointer_64(tmp, 0, set_vaddr_page)
+                if dest: 
+                    valid_pointer[i] = hex(dest)[:-1]
+                    i += 7
+                    #print("valid pointer:", tmp, i, hex(dest))
+            i += 1
+        log("finish pointer")
+        idx = 0
+        while idx < len(content):
+            tmp = content[idx:idx+8]
+            if tmp.startswith('\x00'):
+                idx += 1
+                continue
+            find_comm = tmp.replace('\x00', '').replace('\xff', '')
+            tmp_len = 0
+            for item in find_comm:
+                if ord(item) >= 0x30 and ord(item) <= 0x7f:
+                    tmp_len += 1
+            if tmp_len == len(find_comm) and len(find_comm) > 2:
+                valid_comm[idx] = find_comm
+                #print("found string at", idx, tmp)
+                idx = idx + 7
+            idx += 1
+        log("finish comm")
+        i = 0
+        while i < len(content):
+        #for i in range(len(content)):
+            tmp = content[i:i+4]
+            if not tmp.endswith("\x00\x00"):
+                i += 1
+                continue
+            # not entirely true    
+            if len(tmp.replace('\xff', '')) < 4:
+                i += 4
+                continue
+            tmp_len = 0
+            summ = 0
+            for idx in reversed(range(len(tmp))):
+                summ += ord(tmp[idx]) << 8*idx
+                if ord(tmp[idx]) < 0xff and ord(tmp[idx]) > 0x00:
+                    tmp_len += 1
+            if summ < 9000 and tmp_len > 0:
+                valid_int[i] = summ
+                i += 3
+                #print("found pid", i, tmp, summ)
+            i += 1
+
+        #print("pid index", content.find("\x04\xce"))
+        #print("pid region", content[484:500])
+        #print("process name", content.find("apach"))
+        #print("pointer", content[560:580])
+
+        output_dict("./pages/pointer", valid_pointer, paddr) 
+        output_dict("./pages/string", valid_comm, paddr)
+        output_dict("./pages/int", valid_int, paddr)
+
+
+def output_dict(file_path, dicts, paddr):
+    keys = dicts.keys()
+    keys.sort()
+    with open(file_path, 'a') as output:
+        output.write("from " + hex(paddr) + '\n')
+        for key in keys:
+            output.write(str(key) + '\t' + str(dicts[key]) + '\n')
 
 def write_output_file(file_path, list_node_vaddr, dict_node_to_ln, dict_node_to_rn, dict_node_to_lp, dict_node_to_rp, dict_node_vaddr_to_size, dict_vaddr_to_vector, dict_vaddr_to_label, obj_type=None):#, set_node_vaddr_train):
     output_graph = open(file_path, 'w')
