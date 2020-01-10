@@ -1,10 +1,9 @@
 import os
 import sys
 from time import gmtime, strftime
+from pyswip.core import *
+from pyswip import *# Prolog, registerForeign, Atom
 
-HOP = 3
-OUTPUT_PATH = './graph/'
-LABEL_PATH = './label/'
 PAGE_PATH = './pages/'
 MAX_NODE_SIZE = 64
 SEARCH_LEN = 128
@@ -14,23 +13,12 @@ WORD_SIZE = WIN32_OR_64 / 8
 g_dict_paddr_to_vaddr = {}
 g_dict_vaddr_to_paddr = {}
 
-valid_pointer = {}
-valid_comm = {}
-valid_int = {}
 
-OBJ_TYPES = ['_EPROCESS','_ETHREAD','_DRIVER_OBJECT','_FILE_OBJECT','_LDR_DATA_TABLE_ENTRY', '_CM_KEY_BODY']
-BUILD_TYPE = 'train'
-"""
-    with open("./pages/pointer", 'w') as out_put:
-        for k in addr:
-            if(dict_vaddr_to_dest[k] == 0xFFFFFFFF8160D020):
-                out_put.write(hex(k) + '\t' + hex(dict_vaddr_to_dest[k]) + '\n')
-"""
+set_vaddr_page = set()
+image_path = "/home/zhenxiao/DeepMem/memory_dumps/linux-sample-1.bin"
 def main():
+    p = Prolog()
     image_path = sys.argv[1]
-    if len(sys.argv) >= 3 and sys.argv[2] == 'test':
-        global BUILD_TYPE
-        BUILD_TYPE = 'test'
     print_configure()
     image_name = os.path.basename(image_path)
     log(image_name)
@@ -43,66 +31,77 @@ def main():
     #addr = dict_vaddr_to_dest.keys()
     #addr.sort()
 
-    
 
     paddr = vaddr_to_paddr(0xFFFF88001C278080)
-    print("paddr: ", hex(paddr))
+    #print("paddr: ", hex(paddr))
     keys = dict_paddr_to_size.keys()
     keys.sort()
-    extract_info(image_path, paddr, 4096, set_vaddr_page)
+    kb1, kb2, kb3 = extract_info(image_path, paddr, 4096, set_vaddr_page, "task_struct")
 
+    assertz = Functor("assertz")
+    ispointer = Functor("ispointer", 1)
+    isstring = Functor("isstring", 1)
+    isint = Functor("isint", 1)
+
+    X = Variable()
+    Y = Variable()
+    q = Query(ispointer(X), module = kb1)
+    while q.nextSolution():
+        pass
+        #print(X.value)
+    q.closeQuery()
+
+    p.consult("./pages/rules.pl")
+    Pid_offset = Variable()
+    Comm_offset = Variable()
+    possible_pid = Functor("possible_pid", 2)
+    registerForeign(query_mm_sturct)
+    for s in p.query("possible_pid(Pid_offset, MM_offset, MM_offset2, Comm_offset, Real_parent_offset), query_mm_sturct(MM_offset)"):
+        if s["Pid_offset"] < 500:
+            pass
+            print(s["Pid_offset"], s["MM_offset"], s["MM_offset2"], s["Comm_offset"], s["Real_parent_offset"])
     log('finish')
+   
+def query_mm_sturct(t):
+    # add another query to verify mm_struct
+    global set_vaddr_page
+    global image_path
+    paddr = vaddr_to_paddr(0xFFFF88001C278080) + t
+    with open("/home/zhenxiao/DeepMem/memory_dumps/linux-sample-1.bin", 'r') as image:
+        image.seek(paddr)
+        content = image.read(8)
+        target_vaddr = hex(is_valid_pointer_64(content, 0, set_vaddr_page))[:-1]
+        target_paddr = vaddr_to_paddr(int(target_vaddr, base=16))
+    
+    pointer_kb, string_kb, int_kb = extract_info(image_path, target_paddr, 400, set_vaddr_page, "mm_struct")
+    X = Variable()
+    Y = Variable()
+    Y2 = Variable()
+    ispointer = Functor("ispointer", 1)
+    x_values = []
+    flag = 0
+    q = Query(ispointer(X), module = pointer_kb)
+    while q.nextSolution():
+        x_value = int(str(X.value))
+        if not x_value in x_values:
+            x_values.append(x_value)
+        #print(X.value)
+    q.closeQuery()
+    x_values.sort()
+    if t == 424:
+        print x_values
+        print ""
 
-'''
-    log('get node vaddr list')
-    dict_node_vaddr_to_size = segmentation(dict_vaddr_to_dest.keys())
-    list_node_vaddr = dict_node_vaddr_to_size.keys()
-    list_node_vaddr.sort()
+    return False
+query_mm_sturct.arity = 1
 
-    set_node_vaddr = set(list_node_vaddr)
-
-    log('find neighbors for each node')
-    dict_node_to_ln, dict_node_to_rn, dict_node_to_lp, dict_node_to_rp = get_node_neighbor_seg(list_node_vaddr, dict_node_vaddr_to_size, dict_vaddr_to_dest, set_node_vaddr)
-
-    log('generate vectors of nodes')
-    dict_vaddr_to_vector = get_node_vector_seg(image_path, list_node_vaddr, dict_node_vaddr_to_size)
-
-    log('get labeled node')
-    dict_vaddr_to_label, set_type = get_vaddr_to_label(image_name, set_node_vaddr)
-    log('len(dict_vaddr_to_label):\t%d' %len(dict_vaddr_to_label))
-
-    if BUILD_TYPE == 'train':
-        for obj_type in set_type:
-            log('get kernel object node set')
-            set_kernel_object_node = set()
-            for node_vaddr in set_node_vaddr:
-                if node_vaddr in dict_vaddr_to_label and obj_type in dict_vaddr_to_label[node_vaddr]:
-                    set_kernel_object_node.add(node_vaddr)
-            log('get training nodes')
-            set_node_vaddr_train = get_train_subset_seg(set_kernel_object_node, dict_node_to_ln, dict_node_to_rn, dict_node_to_lp, dict_node_to_rp)
-
-            log('write training files')
-            if os.path.exists(OUTPUT_PATH) == False:
-                os.system('mkdir ' + OUTPUT_PATH)
-            file_path = OUTPUT_PATH + 'graph.' + image_name.replace('memdump_', '').replace('.raw', '') + '.' + obj_type
-            list_node_vaddr_train = list(set_node_vaddr_train)
-            list_node_vaddr_train.sort()
-            write_output_file(file_path, list_node_vaddr_train, dict_node_to_ln, dict_node_to_rn, dict_node_to_lp, dict_node_to_rp, dict_node_vaddr_to_size, dict_vaddr_to_vector, dict_vaddr_to_label, obj_type)
-    log('write tesing file')
-    file_path = OUTPUT_PATH + 'graph.' + image_name.replace('memdump_', '').replace('.raw', '') + '.all'
-    write_output_file(file_path, list_node_vaddr, dict_node_to_ln, dict_node_to_rn, dict_node_to_lp, dict_node_to_rp, dict_node_vaddr_to_size, dict_vaddr_to_vector, dict_vaddr_to_label)
-'''    
-
-def extract_info(image_path, paddr, size, set_vaddr_page):
-    global valid_pointer
-    global valid_comm
-    global valid_int
-    paddr = 0x1f5e0840
-    size = 1000
+def extract_info(image_path, paddr, size, set_vaddr_page, name):
+    valid_pointer = {}
+    valid_comm = {}
+    valid_int = {}
     with open(image_path, 'r') as image:
         image.seek(paddr)
         content = image.read(size)
-        #for i in range(len(content)):
         i = 0
         while i < len(content):
             tmp = content[i:i+8]
@@ -112,11 +111,11 @@ def extract_info(image_path, paddr, size, set_vaddr_page):
                 dest = is_valid_pointer_64(tmp, 0, set_vaddr_page)
                 if dest: 
                     valid_pointer[i] = hex(dest)[:-1]
-                    print("valid pointer:", tmp, i, hex(dest))
+                    #if paddr == 0x1f5e0840:
+                    #    print("valid pointer:", tmp, i, hex(dest)[:-1])
                     i += 7
                     
             i += 1
-        log("finish pointer")
         idx = 0
         while idx < len(content):
             tmp = content[idx:idx+8]
@@ -130,10 +129,9 @@ def extract_info(image_path, paddr, size, set_vaddr_page):
                     tmp_len += 1
             if tmp_len == len(find_comm) and len(find_comm) > 2:
                 valid_comm[idx] = find_comm
-                print("found string at", idx, tmp)
+                #print("found string at", idx, tmp)
                 idx = idx + 7
             idx += 1
-        log("finish comm")
         i = 0
         while i < len(content):
         #for i in range(len(content)):
@@ -153,53 +151,39 @@ def extract_info(image_path, paddr, size, set_vaddr_page):
                     tmp_len += 1
             if summ < 9000 and tmp_len > 0:
                 valid_int[i] = summ
-                #print("found pid", i, tmp, summ)
                 i += 3
-                
+                #print("found pid", i, tmp, summ)
             i += 1
-        # unsigned long
-        i = 0
-        while i < 400:
-            print("raw bytes at ", i, content[i:i+8])
-            i += 8 
-        i = 0
-        
-        while i < len(content):
-        #for i in range(len(content)):
-            tmp = content[i:i+8]
-            if not tmp.endswith("\x00"):
-                i += 1
-                continue
-            # not entirely true    
-            if len(tmp.replace('\xff', '')) < 4:
-                i += 8
-                continue
-            tmp_len = 0
-            summ = 0
-            for idx in reversed(range(len(tmp))):
-                summ += ord(tmp[idx]) << 8*idx
-                if ord(tmp[idx]) < 0xff and ord(tmp[idx]) > 0x00:
-                    tmp_len += 1
-            if tmp_len > 0:
-                valid_int[i] = summ
-                print("found unsigned long", i, tmp, summ) 
-                #i += 7
-                  
-            i += 1    
 
-        #print("pid index", content.find("\x04\xce"))
-        #print("pid region", content[484:500])
-        #print("process name", content.find("apach"))
-        #print("pointer", content[560:580])
 
-        output_dict("./pages/pointer", valid_pointer, paddr) 
-        output_dict("./pages/string", valid_comm, paddr)
-        output_dict("./pages/int", valid_int, paddr)
+    output_dict("./pages/pointer_" + name, valid_pointer, paddr) 
+    output_dict("./pages/string_" + name, valid_comm, paddr)
+    output_dict("./pages/int_" + name, valid_int, paddr)
+    assertz = Functor("assertz")
+    ispointer = Functor("ispointer", 1)
+    isstring = Functor("isstring", 1)
+    isint = Functor("isint", 1)
+    if paddr == 0x1f5e0840:
+        pointer_kb = construct_kb(assertz, ispointer, valid_pointer, "mm_pointer", 1)
+    else:
+        pointer_kb = construct_kb(assertz, ispointer, valid_pointer, "mm_pointer")
+    string_kb = construct_kb(assertz, isstring, valid_comm, "mm_string")
+    int_kb = construct_kb(assertz, isint, valid_int, "mm_integer")
+    return pointer_kb, string_kb, int_kb
 
+
+def construct_kb(assertz, func, dicts, kb_name, paddr=0):
+    kb = newModule(str(kb_name))
+    keys = dicts.keys()
+    keys.sort()
+    for key in keys:
+        call(assertz(func(str(key))), module=kb)
+    return kb
 
 def output_dict(file_path, dicts, paddr):
     keys = dicts.keys()
     keys.sort()
+    # check this should be a or r
     with open(file_path, 'a') as output:
         output.write("from " + hex(paddr) + '\n')
         for key in keys:
@@ -224,16 +208,10 @@ def write_output_file(file_path, list_node_vaddr, dict_node_to_ln, dict_node_to_
     output_graph.close()
 
 def print_configure():
-    log('OUTPUT_PATH:\t%s' %OUTPUT_PATH)
-    log('LABEL_PATH:\t%s' %LABEL_PATH)
     log('PAGE_PATH:\t%s' %PAGE_PATH)
     log('MAX_NODE_SIZE:\t%d' %MAX_NODE_SIZE)
     log('WIN32_OR_64:\t%d' %WIN32_OR_64)
     log('WORD_SIZE:\t%d' %WORD_SIZE)
-    log('MAX_NODE_COUNT:\t%d' %MAX_NODE_COUNT)
-    log('BUILD_TYPE:\t%s' %BUILD_TYPE)
-    log('SEARCH_LEN:\t%d' %SEARCH_LEN)
-    log('HOP:\t%d' %HOP)
     sys.stdout.flush()
 
 def segmentation(list_ptr):
@@ -253,104 +231,14 @@ def segmentation(list_ptr):
                     dict_node_vaddr_to_size[ptr + word_size] = node_size
     return dict_node_vaddr_to_size
 
-def get_node_neighbor_seg(list_node_vaddr, dict_node_vaddr_to_size, dict_ptr_to_dest, set_node_addr):
-    set_ptr = set(dict_ptr_to_dest.keys())
-    dict_node_to_ln = {}
-    dict_node_to_rn = {}
-    dict_node_to_lp = {}
-    dict_node_to_rp = {}
-    for idx, node_vaddr in enumerate(list_node_vaddr):
-        if dict_node_vaddr_to_size[node_vaddr] <= 0:
-            continue
-        if idx - 1 >= 0:        #if two nodes are too far away, not neighbor
-            if list_node_vaddr[idx] - list_node_vaddr[idx - 1] < 512:
-                dict_node_to_ln[node_vaddr] = list_node_vaddr[idx - 1]
-        if idx + 1 < len(list_node_vaddr):
-            if list_node_vaddr[idx + 1] - list_node_vaddr[idx] < 512:
-                dict_node_to_rn[node_vaddr] = list_node_vaddr[idx + 1]
 
-        dict_node_to_rp[node_vaddr] = set()
-        right_ptr_addr = node_vaddr + dict_node_vaddr_to_size[node_vaddr]
-        while right_ptr_addr in set_ptr:
-            dest = dict_ptr_to_dest[right_ptr_addr]
-            try_time = SEARCH_LEN
-            while dest not in set_node_addr and try_time > 0:
-                dest -= 1
-                try_time -= 1
-            if dest in set_node_addr:
-                dict_node_to_rp[node_vaddr].add(dest)
-            right_ptr_addr += WIN32_OR_64 / 8
-
-        dict_node_to_lp[node_vaddr] = set()
-        left_ptr_addr = node_vaddr - 4
-        while left_ptr_addr in set_ptr:
-            dest = dict_ptr_to_dest[left_ptr_addr]
-            try_time = SEARCH_LEN
-            while dest not in set_node_addr and try_time > 0:
-                dest -= 1
-                try_time -= 1
-            if dest in set_node_addr:
-                dict_node_to_lp[node_vaddr].add(dest)
-            left_ptr_addr -= WIN32_OR_64 / 8
-    return dict_node_to_ln, dict_node_to_rn, dict_node_to_lp, dict_node_to_rp
-
-def get_train_subset_seg(set_node_init, dict_node_to_ln, dict_node_to_rn, dict_node_to_lp, dict_node_to_rp):
-    set_node_addr_minibatch = set_node_init
-    set_search_addr = set_node_addr_minibatch
-    for t in range(100):
-        set_new_addr = set()
-        for addr in set_search_addr:
-            #ln = rn = None
-            if addr in dict_node_to_ln:
-                ln = dict_node_to_ln[addr]
-                if ln not in set_node_addr_minibatch:
-                    set_new_addr.add(ln)
-            if addr in dict_node_to_rn:
-                rn = dict_node_to_rn[addr]
-                if rn not in set_node_addr_minibatch:
-                    set_new_addr.add(rn)
-            pns = dict_node_to_rp[addr].union(dict_node_to_lp[addr])
-            for pn in pns:
-                if pn not in set_node_addr_minibatch:
-                    set_new_addr.add(pn)
-            if len(set_node_addr_minibatch) + len(set_new_addr) >= MAX_NODE_COUNT:
-                break
-        set_node_addr_minibatch.update(set_new_addr)
-        if len(set_node_addr_minibatch) >= MAX_NODE_COUNT:
-            break
-        set_search_addr = set(set_new_addr)
-    return set_node_addr_minibatch
-
-def get_node_vector_seg(image_path, list_node_vaddr, dict_node_vaddr_to_size):#, dict_addr_to_page_head):
-    dict_node_vaddr_to_content = {}
-    dict_node_paddr_to_size = {}
-    #log('len(list_node_vaddr): ' + str(len(list_node_vaddr)))
-    for node_vaddr in list_node_vaddr:
-        node_paddr = vaddr_to_paddr(node_vaddr)
-        if node_paddr != None:
-            node_size = dict_node_vaddr_to_size[node_vaddr]
-            dict_node_paddr_to_size[node_paddr] = node_size
-    #log('len(dict_node_paddr_to_size): ' + str(len(dict_node_paddr_to_size)))
-    list_node_paddr = dict_node_paddr_to_size.keys()
-    list_node_paddr.sort()
-    #log('len(list_node_paddr): ' + str(len(list_node_paddr)))
-    with open(image_path, 'r') as image:
-        for node_paddr in list_node_paddr:
-            image.seek(node_paddr)
-            node_content = image.read(dict_node_paddr_to_size[node_paddr])   
-            node_content = [ord(c) for c in node_content]
-            node_vaddr = paddr_to_vaddr(node_paddr)
-            if node_vaddr != None:
-                dict_node_vaddr_to_content[node_vaddr] = node_content
-    #log('len(dict_node_vaddr_to_content): ' + str(len(dict_node_vaddr_to_content)))
-    return dict_node_vaddr_to_content
 
 def read_available_pages(image_name):
     image_name = image_name.split('.mutate')[0]
     global g_dict_paddr_to_vaddr
     global g_dict_vaddr_to_paddr
     dict_paddr_to_size = {}
-    set_vaddr_page = set()
+    global set_vaddr_page
     with open(PAGE_PATH + 'pages.' + image_name, 'r') as page:
         for line in page:
             s = line.strip().split('\t')
@@ -364,35 +252,6 @@ def read_available_pages(image_name):
                 set_vaddr_page.add(vaddr + i)
     return dict_paddr_to_size, set_vaddr_page
     
-def read_label_file(image_name, set_vaddr_type_size, set_type, type):
-    image_name = image_name.split('.mutate')[0]
-    with open(LABEL_PATH + 'label.' + image_name + '.' + type, 'r') as f:
-        for line in f:
-            s = line.strip().split('\t')
-            vaddr = int(s[0], 0)
-            obj_type = s[1]
-            if obj_type not in OBJ_TYPES:
-                continue
-            obj_size = int(s[2])
-            if obj_type not in set_type:
-                set_type.add(obj_type)
-            record = (vaddr, obj_type, obj_size)
-            if record not in set_vaddr_type_size:
-                set_vaddr_type_size.add(record)
-
-def get_vaddr_to_label(image_name, set_node_vaddr):
-    image_name = image_name.split('.mutate')[0]
-    dict_vaddr_to_label = {}
-    set_vaddr_type_size = set()
-    set_type = set()
-    read_label_file(image_name, set_vaddr_type_size, set_type, 'multiscan')
-    read_label_file(image_name, set_vaddr_type_size, set_type, 'handles')
-    #print(len(set_vaddr_type_size))
-    for vaddr, obj_type, obj_size in set_vaddr_type_size:
-        for i in range(obj_size):
-            if vaddr + i in set_node_vaddr:
-                dict_vaddr_to_label[vaddr + i] = obj_type + '@' + str(i)
-    return dict_vaddr_to_label, set_type
 
 def get_continuous_pages(available_pages):
     dict_page_addr_to_size = {}
@@ -449,7 +308,6 @@ def is_valid_pointer_64(buf, idx, set_vaddr_page):
     if (dest >> 12 << 12) in set_vaddr_page:
         return dest 
     return None
-
 
 def get_page_content(available_pages):
     dict_page_addr_to_content = {}
