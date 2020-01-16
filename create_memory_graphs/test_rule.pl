@@ -1,0 +1,10 @@
+ispointer(0).
+ispointer(8).
+ispointer(16).
+ispointer(24).
+ispointer(32).
+ispointer(72).
+ispointer(112).
+ispointer(120).
+ispointer(128).
+ispointer(136).

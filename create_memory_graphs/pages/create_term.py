@@ -1,6 +1,5 @@
 from pyswip.core import *
-from pyswip.prolog import Prolog registerForeign Atom
-
+from pyswip import *
 def main():
     prolog = Prolog()
     
@@ -8,6 +7,7 @@ def main():
     a2 = a1 + 1
     t = PL_new_term_ref()
     ta = PL_new_term_ref()
+    
 
     animal2 = PL_new_functor(PL_new_atom("animal"), 2)
     assertz = PL_new_functor(PL_new_atom("assertz"), 1)
@@ -19,6 +19,8 @@ def main():
     PL_call(ta, None)
     
     print(list(prolog.query("animal(X,Y)", catcherrors=True)))
+    i = []
+    PL_get_integer(a2, i)
 
     
 if __name__ == "__main__":

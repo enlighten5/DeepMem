@@ -45,12 +45,18 @@ def main():
 
     
 
-    paddr = vaddr_to_paddr(0xFFFF88001C278080)
+    #paddr = vaddr_to_paddr(0xFFFF88001C278080)
+    paddr = vaddr_to_paddr(0xffff88001f994740)
     print("paddr: ", hex(paddr))
     keys = dict_paddr_to_size.keys()
     keys.sort()
-    extract_info(image_path, paddr, 4096, set_vaddr_page)
-
+    #extract_info(image_path, paddr, 4096, set_vaddr_page)
+    addrs = 0
+    while addrs < 512*1024*1024:
+        if addrs > 0x1f990000:
+            extrace_pointer(image_path, addrs, 4096, set_vaddr_page)
+        addrs += 4096
+    print addrs
     log('finish')
 
 '''
@@ -92,6 +98,17 @@ def main():
     file_path = OUTPUT_PATH + 'graph.' + image_name.replace('memdump_', '').replace('.raw', '') + '.all'
     write_output_file(file_path, list_node_vaddr, dict_node_to_ln, dict_node_to_rn, dict_node_to_lp, dict_node_to_rp, dict_node_vaddr_to_size, dict_vaddr_to_vector, dict_vaddr_to_label)
 '''    
+def extrace_pointer(image_path, paddr, size, set_vaddr_page):
+    with open(image_path, 'r') as image:
+        image.seek(paddr)
+        content = image.read(size)
+        
+        #for i in range(len(content)):
+        idx = content.find("init")
+        if idx > -1:
+            print(hex(idx), hex(paddr), hex(paddr + idx), hex(paddr_to_vaddr(paddr+idx)))
+            print(content[idx:idx+20])
+
 
 def extract_info(image_path, paddr, size, set_vaddr_page):
     global valid_pointer
@@ -106,14 +123,14 @@ def extract_info(image_path, paddr, size, set_vaddr_page):
         i = 0
         while i < len(content):
             tmp = content[i:i+8]
-            if(tmp.endswith("\xff\xff")):
+            if(tmp.endswith("\x00")):
                 if not len(tmp)==8:
                     break
                 dest = is_valid_pointer_64(tmp, 0, set_vaddr_page)
                 if dest: 
                     valid_pointer[i] = hex(dest)[:-1]
                     print("valid pointer:", tmp, i, hex(dest))
-                    i += 7
+                    #i += 7
                     
             i += 1
         log("finish pointer")
@@ -138,7 +155,7 @@ def extract_info(image_path, paddr, size, set_vaddr_page):
         while i < len(content):
         #for i in range(len(content)):
             tmp = content[i:i+4]
-            if not tmp.endswith("\x00\x00"):
+            if not tmp.endswith("\x00"):
                 i += 1
                 continue
             # not entirely true    
@@ -149,7 +166,7 @@ def extract_info(image_path, paddr, size, set_vaddr_page):
             summ = 0
             for idx in reversed(range(len(tmp))):
                 summ += ord(tmp[idx]) << 8*idx
-                if ord(tmp[idx]) < 0xff and ord(tmp[idx]) > 0x00:
+                if ord(tmp[idx]) < 0xff and ord(tmp[idx]) >= 0x00:
                     tmp_len += 1
             if summ < 9000 and tmp_len > 0:
                 valid_int[i] = summ
@@ -178,7 +195,7 @@ def extract_info(image_path, paddr, size, set_vaddr_page):
             summ = 0
             for idx in reversed(range(len(tmp))):
                 summ += ord(tmp[idx]) << 8*idx
-                if ord(tmp[idx]) < 0xff and ord(tmp[idx]) > 0x00:
+                if ord(tmp[idx]) < 0xff and ord(tmp[idx]) >= 0x00:
                     tmp_len += 1
             if tmp_len > 0:
                 valid_int[i] = summ
@@ -446,10 +463,10 @@ def is_valid_pointer_32(buf, idx, set_vaddr_page):
 def is_valid_pointer_64(buf, idx, set_vaddr_page):
     #if ord(buf[idx+7]) == 0xff and ord(buf[idx+6]) == 0xff and ord(buf[idx+5]) > 0x08 and ord(buf[idx]) % 4 == 0:
     dest = (ord(buf[idx+7]) << 56) + (ord(buf[idx+6]) << 48) + (ord(buf[idx+5]) << 40) + (ord(buf[idx+4]) << 32) + (ord(buf[idx+3]) << 24) + (ord(buf[idx+2]) << 16) + (ord(buf[idx+1]) << 8) + ord(buf[idx])
-    if (dest >> 12 << 12) in set_vaddr_page:
-        return dest 
-    return None
-
+    #if (dest >> 12 << 12) in set_vaddr_page:
+    #    return dest 
+    #return None
+    return dest
 
 def get_page_content(available_pages):
     dict_page_addr_to_content = {}

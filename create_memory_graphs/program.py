@@ -2,7 +2,8 @@ import os
 import sys
 from time import gmtime, strftime
 from pyswip.core import *
-from pyswip import *# Prolog, registerForeign, Atom
+from pyswip import *
+import random
 
 PAGE_PATH = './pages/'
 MAX_NODE_SIZE = 64
@@ -12,12 +13,10 @@ WIN32_OR_64 = 64
 WORD_SIZE = WIN32_OR_64 / 8
 g_dict_paddr_to_vaddr = {}
 g_dict_vaddr_to_paddr = {}
-
-
 set_vaddr_page = set()
 image_path = "/home/zhenxiao/DeepMem/memory_dumps/linux-sample-1.bin"
+
 def main():
-    p = Prolog()
     image_path = sys.argv[1]
     print_configure()
     image_name = os.path.basename(image_path)
@@ -38,6 +37,8 @@ def main():
     keys.sort()
     kb1, kb2, kb3 = extract_info(image_path, paddr, 4096, set_vaddr_page, "task_struct")
 
+    query_task_struct(image_path, 0x1f994ad8)
+
     assertz = Functor("assertz")
     ispointer = Functor("ispointer", 1)
     isstring = Functor("isstring", 1)
@@ -51,46 +52,64 @@ def main():
         #print(X.value)
     q.closeQuery()
 
-    p.consult("./pages/rules.pl")
-    Pid_offset = Variable()
-    Comm_offset = Variable()
-    possible_pid = Functor("possible_pid", 2)
-    registerForeign(query_mm_sturct)
-    for s in p.query("possible_pid(Pid_offset, MM_offset, MM_offset2, Comm_offset, Real_parent_offset), query_mm_sturct(MM_offset)"):
-        if s["Pid_offset"] < 500:
-            pass
-            print(s["Pid_offset"], s["MM_offset"], s["MM_offset2"], s["Comm_offset"], s["Real_parent_offset"])
+    
     log('finish')
-   
-def query_mm_sturct(t):
+
+
+def query_task_struct(image_path, init_paddr):
+    p = Prolog()
+    init_paddr -= 0x3e8
+    extract_info(image_path, init_paddr, 4096, set_vaddr_page, "task_struct")
+    ispointer = Functor("ispointer", 1)
+    registerForeign(query_mm_sturct)
+    p.consult("./pages/kb_file.pl")
+    p.consult("./pages/rules.pl")
+    possible_task_struct = Functor("possible_task_struct", 5)
+    registerForeign(query_mm_sturct)
+    for s in p.query("possible_task_struct(Pid_offset, MM_offset, MM_offset2, Comm_offset), query_mm_struct(MM_offset)"):
+        print(s["Pid_offset"], s["MM_offset"], s["MM_offset2"], s["Comm_offset"])
+
+
+
+
+def find_init(image_path):
+    address = 0
+    with open(image_path, 'r') as image:
+        while address < 512*1024*1024:
+            image.seek(address)
+            content = image.read(4096)
+            idx = content.find("init")
+            if idx > -1:
+                yield address + idx
+            address += 4096
+    print "init not found!"
+
+def query_mm_sturct(init_paddr, t):
     # add another query to verify mm_struct
     global set_vaddr_page
     global image_path
-    paddr = vaddr_to_paddr(0xFFFF88001C278080) + t
+    #paddr = vaddr_to_paddr(0xFFFF88001C278080) + t
+    paddr = init_paddr + t
     with open("/home/zhenxiao/DeepMem/memory_dumps/linux-sample-1.bin", 'r') as image:
         image.seek(paddr)
         content = image.read(8)
         target_vaddr = hex(is_valid_pointer_64(content, 0, set_vaddr_page))[:-1]
         target_paddr = vaddr_to_paddr(int(target_vaddr, base=16))
-    
+    if not target_paddr:
+        return False
     pointer_kb, string_kb, int_kb = extract_info(image_path, target_paddr, 400, set_vaddr_page, "mm_struct")
     X = Variable()
-    Y = Variable()
-    Y2 = Variable()
     ispointer = Functor("ispointer", 1)
     x_values = []
     flag = 0
     q = Query(ispointer(X), module = pointer_kb)
     while q.nextSolution():
         x_value = int(str(X.value))
-        if not x_value in x_values:
-            x_values.append(x_value)
-        #print(X.value)
+        x_values.append(x_value)
     q.closeQuery()
     x_values.sort()
-    if t == 424:
-        print x_values
-        print ""
+    if x_values[0]==0 and x_values[1] == 8 and x_values[2] == 16 and x_values[3]==24 and x_values[4] == 32:
+        return True
 
     return False
 query_mm_sturct.arity = 1
@@ -102,6 +121,7 @@ def extract_info(image_path, paddr, size, set_vaddr_page, name):
     with open(image_path, 'r') as image:
         image.seek(paddr)
         content = image.read(size)
+        # find pointers
         i = 0
         while i < len(content):
             tmp = content[i:i+8]
@@ -111,11 +131,10 @@ def extract_info(image_path, paddr, size, set_vaddr_page, name):
                 dest = is_valid_pointer_64(tmp, 0, set_vaddr_page)
                 if dest: 
                     valid_pointer[i] = hex(dest)[:-1]
-                    #if paddr == 0x1f5e0840:
-                    #    print("valid pointer:", tmp, i, hex(dest)[:-1])
                     i += 7
                     
             i += 1
+        # find strings
         idx = 0
         while idx < len(content):
             tmp = content[idx:idx+8]
@@ -132,6 +151,7 @@ def extract_info(image_path, paddr, size, set_vaddr_page, name):
                 #print("found string at", idx, tmp)
                 idx = idx + 7
             idx += 1
+        # find unsigned long 
         i = 0
         while i < len(content):
         #for i in range(len(content)):
@@ -156,29 +176,36 @@ def extract_info(image_path, paddr, size, set_vaddr_page, name):
             i += 1
 
 
-    output_dict("./pages/pointer_" + name, valid_pointer, paddr) 
-    output_dict("./pages/string_" + name, valid_comm, paddr)
-    output_dict("./pages/int_" + name, valid_int, paddr)
+    #output_dict("./pages/pointer_" + name, valid_pointer, paddr) 
+    #output_dict("./pages/string_" + name, valid_comm, paddr)
+    #output_dict("./pages/int_" + name, valid_int, paddr)
     assertz = Functor("assertz")
     ispointer = Functor("ispointer", 1)
     isstring = Functor("isstring", 1)
     isint = Functor("isint", 1)
-    if paddr == 0x1f5e0840:
-        pointer_kb = construct_kb(assertz, ispointer, valid_pointer, "mm_pointer", 1)
-    else:
-        pointer_kb = construct_kb(assertz, ispointer, valid_pointer, "mm_pointer")
-    string_kb = construct_kb(assertz, isstring, valid_comm, "mm_string")
-    int_kb = construct_kb(assertz, isint, valid_int, "mm_integer")
+    if name == "task_struct":
+        construct_kb(assertz, ispointer, valid_pointer)
+        construct_kb(assertz, isstring, valid_comm)
+        construct_kb(assertz, isint, valid_int)
+        return
+    pointer_kb = construct_kb(assertz, ispointer, valid_pointer, random.random())
+    string__kb = construct_kb(assertz, isstring, valid_comm, random.random())
+    int_kb = construct_kb(assertz, isint, valid_int, random.random())
     return pointer_kb, string_kb, int_kb
 
 
-def construct_kb(assertz, func, dicts, kb_name, paddr=0):
-    kb = newModule(str(kb_name))
+def construct_kb(assertz, func, dicts, kb_name=None):
     keys = dicts.keys()
     keys.sort()
-    for key in keys:
-        call(assertz(func(str(key))), module=kb)
-    return kb
+    if not kb_name == None:
+        kb = newModule(str(kb_name))
+        for key in keys:
+            call(assertz(func(str(key))), module=kb)
+        return kb
+    else:
+        with open("./pages/kb_file.pl", 'w') as kb_file:
+            for key in keys:
+                kb_file.write(str(func.name) + "(" + str(key) + ")." + '\n')
 
 def output_dict(file_path, dicts, paddr):
     keys = dicts.keys()
