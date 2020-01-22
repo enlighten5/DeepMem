@@ -70,8 +70,6 @@ def query_task_struct(image_path, init_paddr):
         print(s["Pid_offset"], s["MM_offset"], s["MM_offset2"], s["Comm_offset"])
 
 
-
-
 def find_init(image_path):
     address = 0
     with open(image_path, 'r') as image:
