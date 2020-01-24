@@ -46,16 +46,17 @@ def main():
     
 
     #paddr = vaddr_to_paddr(0xFFFF88001C278080)
-    paddr = vaddr_to_paddr(0xffff88001f994740)
+    #paddr = vaddr_to_paddr(0xffff88001f994740)
+    paddr = 526256192
     print("paddr: ", hex(paddr))
     keys = dict_paddr_to_size.keys()
     keys.sort()
-    #extract_info(image_path, paddr, 4096, set_vaddr_page)
+    extract_info(image_path, paddr, 4096, set_vaddr_page)
     addrs = 0
-    while addrs < 512*1024*1024:
-        if addrs > 0x1f990000:
-            extrace_pointer(image_path, addrs, 4096, set_vaddr_page)
-        addrs += 4096
+    #while addrs < 512*1024*1024:
+    #    if addrs > 0x1f990000:
+    #        extrace_pointer(image_path, addrs, 4096, set_vaddr_page)
+    #    addrs += 4096
     print addrs
     log('finish')
 

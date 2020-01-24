@@ -2306,6 +2306,7 @@ class VolatilityDTB(obj.VolatilityMagic):
 
     def generate_suggestions(self):
         """Tries to locate the DTB."""
+        # zx012 this is how it find the DTB
         profile = self.obj_vm.profile
         config = self.obj_vm.get_config()
         tbl    = self.obj_vm.profile.sys_map["kernel"]
@@ -2340,6 +2341,7 @@ class VolatilityDTB(obj.VolatilityMagic):
             
         init_task_addr = tbl["init_task"][0][0] + virtual_shift_address
         dtb_sym_addr   = tbl[sym][0][0] + virtual_shift_address
+        print hex(dtb_sym_addr)
         files_sym_addr = tbl["init_files"][0][0] + virtual_shift_address
        
         comm_offset   = profile.get_obj_offset("task_struct", "comm")
@@ -2352,7 +2354,7 @@ class VolatilityDTB(obj.VolatilityMagic):
             good_dtb = (dtb_sym_addr - shifts[0] - virtual_shift_address) + physical_shift_address
             self.obj_vm.profile.physical_shift = physical_shift_address 
             self.obj_vm.profile.virtual_shift  = virtual_shift_address
-
+        # zx012 this is how to find dtb using profile
         if good_dtb == -1:
             for shift in shifts:
                 sym_addr = dtb_sym_addr - shift
@@ -2364,8 +2366,10 @@ class VolatilityDTB(obj.VolatilityMagic):
                     idx = buf.find("swapper")
                     if idx == 0:
                         good_dtb = sym_addr
+                        good_dtb = -1
                         break
-
+        for shift in shifts:
+            print "sym_addr", hex(dtb_sym_addr - shift), hex(dtb_sym_addr)
         # check for relocated or physical aslr kernel
         if good_dtb == -1:
             scanner = swapperScan(needles = ["swapper/0\x00\x00\x00\x00\x00\x00"])
@@ -2397,7 +2401,7 @@ class VolatilityDTB(obj.VolatilityMagic):
                 self.obj_vm.profile.virtual_shift  = tmp_virtual_shift
  
                 break
-        
+        print "find good dtb ", hex(good_dtb)
         yield good_dtb
 
 # the intel check, simply checks for the static paging of init_task

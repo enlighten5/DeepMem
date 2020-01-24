@@ -87,6 +87,7 @@ class AbstractPagedMemory(addrspace.AbstractVirtualAddressSpace):
 
     def load_dtb(self):
         """Loads the DTB as quickly as possible from the config, then the base, then searching for it"""
+        print "in load_dtb"
         try:
             # If the user has manually specified one, then shortcircuit to that one
             if self._config.DTB:
@@ -94,10 +95,12 @@ class AbstractPagedMemory(addrspace.AbstractVirtualAddressSpace):
 
             ## Try to be lazy and see if someone else found dtb for
             ## us:
+            print "someone has found dtb "
             return self.base.dtb
         except AttributeError:
             ## Ok so we need to find our dtb ourselves:
             dtb = obj.VolMagic(self.base).DTB.v()
+            print "find dtb by ourselves", dtb
             if dtb:
                 ## Make sure to save dtb for other AS's
                 ## Will this have an effect on following ASes attempts if this fails?

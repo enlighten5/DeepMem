@@ -238,7 +238,7 @@ class AMD64PagedMemory(paged.AbstractWritablePagedMemory):
         Page Directory, and Page Table to determine which pages
         are accessible.
         '''
-
+        print "amd64 get_physical_pages"
         # read the full pml4
         pml4 = self.base.read(self.dtb & 0xffffffffff000, 0x200 * 8)
         if pml4 is None:

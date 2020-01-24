@@ -16,6 +16,7 @@ g_dict_vaddr_to_paddr = {}
 set_vaddr_page = set()
 image_path = "/home/zhenxiao/DeepMem/memory_dumps/linux-sample-1.bin"
 
+global info_global
 def main():
     image_path = sys.argv[1]
     print_configure()
@@ -31,13 +32,16 @@ def main():
     #addr.sort()
 
 
-    paddr = vaddr_to_paddr(0xFFFF88001C278080)
-    #print("paddr: ", hex(paddr))
+    paddr = vaddr_to_paddr(0xFFFF88001C278080) # apache task struct address
+    print("paddr: ", hex(paddr))
     keys = dict_paddr_to_size.keys()
     keys.sort()
-    kb1, kb2, kb3 = extract_info(image_path, paddr, 4096, set_vaddr_page, "task_struct")
+    #kb1, kb2, kb3 = extract_info(image_path, paddr, 4096, set_vaddr_page, "placeholder")
 
-    query_task_struct(image_path, 0x1f994ad8)
+    point = read_pointer(paddr+408)
+    print hex(point)
+    #query_task_struct(image_path, paddr)
+    #query_mm_struct(424)
 
     assertz = Functor("assertz")
     ispointer = Functor("ispointer", 1)
@@ -46,56 +50,73 @@ def main():
 
     X = Variable()
     Y = Variable()
-    q = Query(ispointer(X), module = kb1)
+    q = Query(ispointer(X))
     while q.nextSolution():
         pass
         #print(X.value)
     q.closeQuery()
 
+    file_h = open("./pages/kb_all.pl", 'w')
+    file_h.write(":- discontiguous(ispointer/3)." + "\n")
+    file_h.write(":- discontiguous(isint/3)." + "\n")
+    file_h.write(":- discontiguous(isstring/3)." + "\n")
+    file_h.close()
+
+
+    valid_p = extract_info_r(image_path, paddr, 1024, set_vaddr_page, "ts_struct")
+    keys = valid_p.keys()
+    for key in keys:
+        extract_info_r(image_path, valid_p[key], 1024, set_vaddr_page, "ts_struct")
+    #extract_info(image_path, 526256192, 400, set_vaddr_page, "mm_struct")
     
     log('finish')
 
 
 def query_task_struct(image_path, init_paddr):
     p = Prolog()
-    init_paddr -= 0x3e8
     extract_info(image_path, init_paddr, 4096, set_vaddr_page, "task_struct")
-    ispointer = Functor("ispointer", 1)
-    registerForeign(query_mm_sturct)
     p.consult("./pages/kb_file.pl")
-    p.consult("./pages/rules.pl")
+    os.system("rm ./pages/kb_file.pl")
+    p.consult("./pages/ts_rules.pl")
     possible_task_struct = Functor("possible_task_struct", 5)
-    registerForeign(query_mm_sturct)
-    for s in p.query("possible_task_struct(Pid_offset, MM_offset, MM_offset2, Comm_offset), query_mm_struct(MM_offset)"):
+    registerForeign(query_mm_struct)
+    for s in p.query("possible_task_struct(Pid_offset, MM_offset, MM_offset2, Comm_offset), query_mm_struct(MM_offset)", catcherrors=False):
         print(s["Pid_offset"], s["MM_offset"], s["MM_offset2"], s["Comm_offset"])
 
 
-def find_init(image_path):
-    address = 0
-    with open(image_path, 'r') as image:
-        while address < 512*1024*1024:
-            image.seek(address)
-            content = image.read(4096)
-            idx = content.find("init")
-            if idx > -1:
-                yield address + idx
-            address += 4096
-    print "init not found!"
-
-def query_mm_sturct(init_paddr, t):
+def query_mm_struct(t):
     # add another query to verify mm_struct
+    
+    p = Prolog()
+
     global set_vaddr_page
     global image_path
-    #paddr = vaddr_to_paddr(0xFFFF88001C278080) + t
-    paddr = init_paddr + t
-    with open("/home/zhenxiao/DeepMem/memory_dumps/linux-sample-1.bin", 'r') as image:
-        image.seek(paddr)
-        content = image.read(8)
-        target_vaddr = hex(is_valid_pointer_64(content, 0, set_vaddr_page))[:-1]
-        target_paddr = vaddr_to_paddr(int(target_vaddr, base=16))
+    result = []
+
+    paddr = vaddr_to_paddr(0xFFFF88001C278080) + t
+    #paddr = init_paddr + t
+    target_paddr = read_pointer(paddr)
     if not target_paddr:
+        print "cannot read target pointer"
         return False
-    pointer_kb, string_kb, int_kb = extract_info(image_path, target_paddr, 400, set_vaddr_page, "mm_struct")
+    extract_info(image_path, target_paddr, 400, set_vaddr_page, "mm_struct")
+    p.consult("./pages/kb_file.pl")
+    os.system("rm ./pages/kb_file.pl")
+    #p.consult("./pages/mm_rules.pl")
+    #possible_task_struct = Functor("possible_mm_struct", 5)
+    #s = p.query_new("possible_mm_struct(Offset1)", catcherrors=False)
+    #for s in p.query("possible_mm_struct(Offset1)", catcherrors=False):
+    #    print(s["Offset1"])
+    #    result.append(int(s["Offset1"]))
+    
+    if t < 432:
+        return True
+    else:
+        return False
+
+
+    return False
+'''
     X = Variable()
     ispointer = Functor("ispointer", 1)
     x_values = []
@@ -110,9 +131,23 @@ def query_mm_sturct(init_paddr, t):
         return True
 
     return False
-query_mm_sturct.arity = 1
+'''
+query_mm_struct.arity = 1
 
-def extract_info(image_path, paddr, size, set_vaddr_page, name):
+def read_pointer(paddr):
+    with open("/home/zhenxiao/DeepMem/memory_dumps/linux-sample-1.bin", 'r') as image:
+        image.seek(paddr)
+        content = image.read(8)
+        target_vaddr = hex(is_valid_pointer_64(content, 0, set_vaddr_page))[:-1]
+        target_paddr = vaddr_to_paddr(int(target_vaddr, base=16))
+    if not target_paddr:
+        return False
+    else:
+        return target_paddr
+
+
+def extract_info(image_path, paddr, size, set_vaddr_page, name, file_h = None):
+    global info_global
     valid_pointer = {}
     valid_comm = {}
     valid_int = {}
@@ -128,7 +163,7 @@ def extract_info(image_path, paddr, size, set_vaddr_page, name):
                     break
                 dest = is_valid_pointer_64(tmp, 0, set_vaddr_page)
                 if dest: 
-                    valid_pointer[i] = hex(dest)[:-1]
+                    valid_pointer[i] = vaddr_to_paddr(int(hex(dest)[:-1], 16))
                     i += 7
                     
             i += 1
@@ -173,23 +208,189 @@ def extract_info(image_path, paddr, size, set_vaddr_page, name):
                 #print("found pid", i, tmp, summ)
             i += 1
 
+    if not file_h:
+        file_h = open("./pages/kb_all.pl", 'a')
+        kb_all = file_h
+        keys = valid_pointer.keys()
+        keys.sort()
+        for key in keys:
+            fact = "ispointer(" + str(paddr) + "," + str(key) + "," + str(valid_pointer[key]) + ")." + "\n"
+            kb_all.write(fact)
+            
+        keys = valid_int.keys()
+        keys.sort()
+        for key in keys:
+            fact = "isint(" + str(paddr) + "," + str(key) + "," + str(valid_int[key]) + ")." + "\n"
+            kb_all.write(fact)
+
+        keys = valid_comm.keys()
+        keys.sort()
+        for key in keys:
+            fact = "isstring(" + str(paddr) + "," + str(key) + "," + ord(valid_comm[key]) + ")." + "\n"
+            kb_all.write(fact)
+
+        kb_all.write("\n")
+ 
+    if len(valid_pointer) > 0:
+        with open("./pages/kb_all.pl", 'a') as kb_all:
+            keys = valid_pointer.keys()
+            keys.sort()
+            for key in keys:
+                extract_info(image_path, valid_pointer[key], 1024, set_vaddr_page, "ts_struct", file_h)
+
+    file_h.close()
 
     #output_dict("./pages/pointer_" + name, valid_pointer, paddr) 
     #output_dict("./pages/string_" + name, valid_comm, paddr)
     #output_dict("./pages/int_" + name, valid_int, paddr)
+'''
     assertz = Functor("assertz")
     ispointer = Functor("ispointer", 1)
     isstring = Functor("isstring", 1)
     isint = Functor("isint", 1)
-    if name == "task_struct":
+    if name == "task_struct" or name == "mm_struct":
         construct_kb(assertz, ispointer, valid_pointer)
         construct_kb(assertz, isstring, valid_comm)
         construct_kb(assertz, isint, valid_int)
         return
     pointer_kb = construct_kb(assertz, ispointer, valid_pointer, random.random())
-    string__kb = construct_kb(assertz, isstring, valid_comm, random.random())
+    string_kb = construct_kb(assertz, isstring, valid_comm, random.random())
     int_kb = construct_kb(assertz, isint, valid_int, random.random())
     return pointer_kb, string_kb, int_kb
+'''
+
+def extract_info_r(image_path, paddr, size, set_vaddr_page, name="placeholder", file_h=None):
+    valid_pointer = {}
+    valid_comm = {}
+    valid_int = {}
+    valid_long = {}
+    
+    image = open(image_path, 'r')
+    image.seek(paddr)
+    content = image.read(size)
+    # find pointers
+    i = 0
+    while i < len(content):
+        tmp = content[i:i+8]
+        if(tmp.endswith("\xff\xff")):
+            if not len(tmp)==8:
+                break
+            dest = is_valid_pointer_64(tmp, 0, set_vaddr_page)
+            if dest: 
+                valid_pointer[i] = vaddr_to_paddr(int(hex(dest)[:-1], 16))
+                i += 7
+                
+        i += 1
+    # find strings
+    idx = 0
+    while idx < len(content):
+        tmp = content[idx:idx+8]
+        if tmp.startswith('\x00'):
+            idx += 1
+            continue
+        find_comm = tmp.replace('\x00', '').replace('\xff', '')
+        tmp_len = 0
+        for item in find_comm:
+            if ord(item) >= 0x30 and ord(item) <= 0x7f:
+                tmp_len += 1
+        if tmp_len == len(find_comm) and len(find_comm) > 2:
+            valid_comm[idx] = find_comm
+            #print("found string at", idx, tmp)
+            idx = idx + 7
+        idx += 1
+    # find unsigned long 
+    i = 0
+    while i < len(content):
+    #for i in range(len(content)):
+        tmp = content[i:i+4]
+        if not tmp.endswith("\x00\x00"):
+            i += 1
+            continue
+        # not entirely true    
+        if len(tmp.replace('\xff', '')) < 4:
+            i += 4
+            continue
+        tmp_len = 0
+        summ = 0
+        for idx in reversed(range(len(tmp))):
+            summ += ord(tmp[idx]) << 8*idx
+            if ord(tmp[idx]) < 0xff and ord(tmp[idx]) > 0x00:
+                tmp_len += 1
+        if summ < 9000 and tmp_len > 0:
+            valid_int[i] = summ
+            i += 3
+            #print("found pid", i, tmp, summ)
+        i += 1
+
+    i = 0  
+    while i < len(content)-8:
+        tmp = content[i:i+8]
+        if not tmp.endswith("\x00\x00"):
+            i += 1
+            continue
+        # not entirely true    
+        if len(tmp.replace('\xff', '')) < 4:
+            i += 8
+            continue
+        if len(tmp.replace('\x00', '')) < 4:
+            i += 8
+            continue
+        tmp_len = 0
+        summ = 0
+        for idx in reversed(range(len(tmp))):
+            summ += ord(tmp[idx]) << 8*idx
+            if ord(tmp[idx]) < 0xff and ord(tmp[idx]) > 0x00:
+                tmp_len += 1
+        if tmp_len > 0 and summ > 0x10000000000:
+            valid_long[i] = is_user_pointer(tmp, 0)
+            #if paddr == 526256192:
+            #    print("found unsigned long", i, tmp, hex(is_user_pointer(tmp, 0)))
+            #i += 7
+                
+        i += 1
+    if paddr == 0x1605000:
+        i = 0
+        while i < 4096:
+            if not hex(is_user_pointer(content[i:i+8], 0)) == '0x0':
+                print("raw bytes at ", i, content[i:i+8], hex(is_user_pointer(content[i:i+8], 0)))
+            i += 8 
+    image.close()
+
+
+    if not file_h:
+        file_h = open("./pages/kb_all.pl", 'a')
+        kb_all = file_h
+        keys = valid_pointer.keys()
+        keys.sort()
+        for key in keys:
+            fact = "ispointer(" + str(paddr) + "," + str(key) + "," + str(valid_pointer[key]) + ")." + "\n"
+            kb_all.write(fact)
+            
+        keys = valid_int.keys()
+        keys.sort()
+        for key in keys:
+            fact = "isint(" + str(paddr) + "," + str(key) + "," + str(valid_int[key]) + ")." + "\n"
+            kb_all.write(fact)
+
+        keys = valid_comm.keys()
+        keys.sort()
+        for key in keys:
+            fact = "isstring(" + str(paddr) + "," + str(key) + "," + "string" + ")." + "\n"
+            kb_all.write(fact)
+        
+        keys = valid_long.keys()
+        keys.sort()
+        for key in keys:
+            fact = "islong(" + str(paddr) + "," + str(key) + "," + str(valid_long[key]) + ")." + "\n"
+            kb_all.write(fact)
+
+        kb_all.write("\n")
+        file_h.close()
+    
+    return valid_pointer
+
+
+
 
 
 def construct_kb(assertz, func, dicts, kb_name=None):
@@ -201,9 +402,21 @@ def construct_kb(assertz, func, dicts, kb_name=None):
             call(assertz(func(str(key))), module=kb)
         return kb
     else:
-        with open("./pages/kb_file.pl", 'w') as kb_file:
+        with open("./pages/kb_file.pl", 'a') as kb_file:
             for key in keys:
                 kb_file.write(str(func.name) + "(" + str(key) + ")." + '\n')
+
+def find_init(image_path):
+    address = 0
+    with open(image_path, 'r') as image:
+        while address < 512*1024*1024:
+            image.seek(address)
+            content = image.read(4096)
+            idx = content.find("init")
+            if idx > -1:
+                yield address + idx
+            address += 4096
+    print "init not found!"
 
 def output_dict(file_path, dicts, paddr):
     keys = dicts.keys()
@@ -334,6 +547,9 @@ def is_valid_pointer_64(buf, idx, set_vaddr_page):
         return dest 
     return None
 
+def is_user_pointer(buf, idx):
+    dest = (ord(buf[idx+7]) << 56) + (ord(buf[idx+6]) << 48) + (ord(buf[idx+5]) << 40) + (ord(buf[idx+4]) << 32) + (ord(buf[idx+3]) << 24) + (ord(buf[idx+2]) << 16) + (ord(buf[idx+1]) << 8) + ord(buf[idx])
+    return dest
 def get_page_content(available_pages):
     dict_page_addr_to_content = {}
     dict_addr_to_page_head = {}

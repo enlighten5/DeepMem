@@ -1,3 +1,5 @@
+use_module(library(clpfd)).
+
 possible_mm_struct(X) :- 
     ispointer(X),
     ispointer(X1),

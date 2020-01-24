@@ -9,7 +9,7 @@ PAGES_OUTPUT_PATH = '../create_memory_graphs/pages/'
 WIN32_OR_64 = 64
 
 class get_physical_pages(taskmods.DllList):
-    '''Get page talbe mapping information'''
+    '''Get page table mapping information'''
 
     def __init__(self, config, *args, **kwargs):
         taskmods.DllList.__init__(self, config, *args, **kwargs)
