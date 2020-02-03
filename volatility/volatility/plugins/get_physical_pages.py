@@ -55,7 +55,7 @@ class get_physical_pages(taskmods.DllList):
             for addr in list_addr:
                 size = dict_page_addr_to_size[addr]
                 physical_addr = self.kernel_address_space.vtop(addr)
-                output.write(str(addr) + '\t' + str(physical_addr) + '\t' + str(size) + '\n')
+                output.write(hex(addr) + '\t' + hex(physical_addr) + '\t' + str(size) + '\n')
         self.log('Finish')
 
     def render_text(self, outfd, data):

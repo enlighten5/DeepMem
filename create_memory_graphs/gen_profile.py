@@ -19,9 +19,13 @@ def main():
     paddr = vaddr_to_paddr(0xFFFF88001C278080) # apache task struct address
     #paddr = 0x160d3b8
     #paddr = 0x1605000
+    #paddr = 0
+    #while paddr < 4096 * 1024 * 512:
+    #construct_kb(image_path, paddr, 2048, set_vaddr_page)
+        #extract_info_r(image_path, paddr, 4096, set_vaddr_page, "test")
+    #    paddr += 4096
 
-
-    #construct_kb(image_path, paddr, 4096, set_vaddr_page)
+    
 
     p = Prolog()
     p.consult("./pages/kb_all.pl")
@@ -29,11 +33,11 @@ def main():
 
     query_cmd = "possible_task_struct(Base_addr, Pid_offset, MM_offset, MM_offset2, MM_pointer)"
     for s in p.query(query_cmd, catcherrors=False):
-        print(s["Base_addr"], s["Pid_offset"], s["MM_offset"], s["MM_offset2"], s["MM_pointer"])
+        #print(s["Base_addr"], s["Pid_offset"], s["MM_offset"], s["MM_offset2"], s["MM_pointer"])
         pass
 
-
-    log('finish')
+log('finish')
+    
 
 
 def construct_kb(image_path, paddr, size, set_vaddr_page):

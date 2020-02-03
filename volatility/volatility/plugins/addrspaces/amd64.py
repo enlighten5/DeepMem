@@ -246,12 +246,16 @@ class AMD64PagedMemory(paged.AbstractWritablePagedMemory):
 
         # unpack all entries
         pml4_entries = struct.unpack('<512Q', pml4)
+        for key in pml4_entries:
+            if key == 0:
+                continue
+            #print bin(key), hex(key)
         for pml4e in range(0, 0x200):
             vaddr = pml4e << 39
             pml4e_value = pml4_entries[pml4e]
             if not self.entry_present(pml4e_value):
                 continue
-
+            
             pdpt_base = (pml4e_value & 0xffffffffff000)
             pdpt = self.base.read(pdpt_base, 0x200 * 8)
             if pdpt is None:
@@ -275,18 +279,24 @@ class AMD64PagedMemory(paged.AbstractWritablePagedMemory):
                 pd = self.base.read(pd_base, 0x200 * 8)
                 if pd is None:
                     continue
-
                 pd_entries = struct.unpack('<512Q', pd)
+                for key in pd_entries:
+                    if key == 0:
+                        continue
+                    #print bin(key), hex(key)
                 prev_pd_entry = None
                 for j in range(0, 0x200):
                     soffset = (j * 0x200 * 0x200 * 8)
 
                     entry = pd_entries[j]
+                    
                     if self.skip_duplicate_entries and entry == prev_pd_entry:
                         continue
                     prev_pd_entry = entry
-
+                    if not entry == 0:
+                        print hex(entry)
                     if self.entry_present(entry) and self.page_size_flag(entry):
+                        #print hex(vaddr + soffset)
                         if with_pte: 
                             yield (entry, vaddr + soffset, 0x200000)
                         else:

@@ -154,91 +154,15 @@ def extract_info(image_path, paddr, size, set_vaddr_page, name, file_h = None):
     with open(image_path, 'r') as image:
         image.seek(paddr)
         content = image.read(size)
-        # find pointers
         i = 0
-        while i < len(content):
-            tmp = content[i:i+8]
-            if(tmp.endswith("\xff\xff")):
-                if not len(tmp)==8:
-                    break
-                dest = is_valid_pointer_64(tmp, 0, set_vaddr_page)
-                if dest: 
-                    valid_pointer[i] = vaddr_to_paddr(int(hex(dest)[:-1], 16))
-                    i += 7
-                    
-            i += 1
-        # find strings
-        idx = 0
-        while idx < len(content):
-            tmp = content[idx:idx+8]
-            if tmp.startswith('\x00'):
-                idx += 1
-                continue
-            find_comm = tmp.replace('\x00', '').replace('\xff', '')
-            tmp_len = 0
-            for item in find_comm:
-                if ord(item) >= 0x30 and ord(item) <= 0x7f:
-                    tmp_len += 1
-            if tmp_len == len(find_comm) and len(find_comm) > 2:
-                valid_comm[idx] = find_comm
-                #print("found string at", idx, tmp)
-                idx = idx + 7
-            idx += 1
-        # find unsigned long 
-        i = 0
-        while i < len(content):
-        #for i in range(len(content)):
-            tmp = content[i:i+4]
-            if not tmp.endswith("\x00\x00"):
-                i += 1
-                continue
-            # not entirely true    
-            if len(tmp.replace('\xff', '')) < 4:
-                i += 4
-                continue
-            tmp_len = 0
-            summ = 0
-            for idx in reversed(range(len(tmp))):
-                summ += ord(tmp[idx]) << 8*idx
-                if ord(tmp[idx]) < 0xff and ord(tmp[idx]) > 0x00:
-                    tmp_len += 1
-            if summ < 9000 and tmp_len > 0:
-                valid_int[i] = summ
-                i += 3
-                #print("found pid", i, tmp, summ)
-            i += 1
-
-    if not file_h:
-        file_h = open("./pages/kb_all.pl", 'a')
-        kb_all = file_h
-        keys = valid_pointer.keys()
-        keys.sort()
-        for key in keys:
-            fact = "ispointer(" + str(paddr) + "," + str(key) + "," + str(valid_pointer[key]) + ")." + "\n"
-            kb_all.write(fact)
-            
-        keys = valid_int.keys()
-        keys.sort()
-        for key in keys:
-            fact = "isint(" + str(paddr) + "," + str(key) + "," + str(valid_int[key]) + ")." + "\n"
-            kb_all.write(fact)
-
-        keys = valid_comm.keys()
-        keys.sort()
-        for key in keys:
-            fact = "isstring(" + str(paddr) + "," + str(key) + "," + ord(valid_comm[key]) + ")." + "\n"
-            kb_all.write(fact)
-
-        kb_all.write("\n")
- 
-    if len(valid_pointer) > 0:
-        with open("./pages/kb_all.pl", 'a') as kb_all:
-            keys = valid_pointer.keys()
-            keys.sort()
-            for key in keys:
-                extract_info(image_path, valid_pointer[key], 1024, set_vaddr_page, "ts_struct", file_h)
-
-    file_h.close()
+        while i < 4096:
+            if len(content[i:i+8]) < 8:
+                break
+            if hex(is_user_pointer(content[i:i+8], 0)) == "0x1605000":
+        #    print "find it at", i
+        #if not hex(is_user_pointer(content[i:i+8], 0)) == '0x0':
+                print("raw bytes at ", hex(paddr + i), content[i:i+8], hex(is_user_pointer(content[i:i+8], 0)))
+            i += 8 
 
     #output_dict("./pages/pointer_" + name, valid_pointer, paddr) 
     #output_dict("./pages/string_" + name, valid_comm, paddr)
@@ -348,12 +272,14 @@ def extract_info_r(image_path, paddr, size, set_vaddr_page, name="placeholder", 
             #i += 7
                 
         i += 1
-    if paddr == 0x1605000:
-        i = 0
-        while i < 4096:
-            if not hex(is_user_pointer(content[i:i+8], 0)) == '0x0':
-                print("raw bytes at ", i, content[i:i+8], hex(is_user_pointer(content[i:i+8], 0)))
-            i += 8 
+    #if paddr == 0x1605000:
+    i = 0
+    #while i < 4096:
+    #    if content[i:i+2] == "\xe3\x01":
+        #    print "find it at", i
+        #if not hex(is_user_pointer(content[i:i+8], 0)) == '0x0':
+    #        print("raw bytes at ", paddr + i, content[i:i+8], hex(is_user_pointer(content[i:i+8], 0)))
+    #    i += 8 
     image.close()
 
 

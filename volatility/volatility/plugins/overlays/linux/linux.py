@@ -2306,7 +2306,8 @@ class VolatilityDTB(obj.VolatilityMagic):
 
     def generate_suggestions(self):
         """Tries to locate the DTB."""
-        # zx012 this is how it find the DTB
+        # zx012 this is how it find the DTB, directory table base
+        # which is actually the vaule from cr3
         profile = self.obj_vm.profile
         config = self.obj_vm.get_config()
         tbl    = self.obj_vm.profile.sys_map["kernel"]
