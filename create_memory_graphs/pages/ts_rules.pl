@@ -18,7 +18,7 @@ possible_task_struct(Base_addr, Pid_offset, MM_offset, MM_offset2, MM_pointer2) 
 
     isint(Base_addr, Pid_offset, Value),
     isint(Base_addr, Tgid_offset, Value2),
-	Tgid_offset is Pid_offset + 4,
+    Tgid_offset is Pid_offset + 4,
     Tgid_offset > Tasks_offset,
     /* for struct mm_struct mm */
 	/*possible_mm_struct(mm_offset, base_addr),*/
@@ -29,19 +29,18 @@ possible_task_struct(Base_addr, Pid_offset, MM_offset, MM_offset2, MM_pointer2) 
     
     ispointer(Base_addr, MM_offset2, MM_pointer),
     MM_offset2 is MM_offset + 8,
-    print_nl('test', MM_offset2),
+
     possible_mm_struct(MM_pointer),
-    print_nl('success', MM_offset2).
 
     /* a bunch of list_head */
 
     /* comm */
-    /*
+
     isstring(Base_addr, Comm_offset, Comm_value),
     Comm_offset > MM_offset2,
-*/
+
     /* children/sibling */
-    /*
+
     ispointer(Base_addr, Child_offset, Child_value),
     Child_offset < Comm_offset,
     Child_offset > Pid_offset,
@@ -49,10 +48,10 @@ possible_task_struct(Base_addr, Pid_offset, MM_offset, MM_offset2, MM_pointer2) 
     ispointer(Base_addr, Sibling_offset, Sibling_value),
     Sibling_offset is Child_offset + 8,
     possible_list_head(Sibling_value),
-*/
+
     /* fs_struct */
     /* files_struct */
- /*   
+ 
     ispointer(Base_addr, FS_offset, FS_value),
     FS_offset > Comm_offset,
     possible_fs_struct(FS_value),
@@ -60,14 +59,13 @@ possible_task_struct(Base_addr, Pid_offset, MM_offset, MM_offset2, MM_pointer2) 
     ispointer(Base_addr, FS_offset2, FS_value2),
     FS_offset2 is FS_offset + 8,
     print_nl('child', Child_offset),
-    print_nl('fs', FS_offset).
-*/
-/*
+    print_nl('fs', FS_offset),
+
     print_nl('stack', Stack_offset),
     print_nl('task', Tasks_offset),
     print_nl('pid', Pid_offset),
     print_nl('mm_struct', MM_offset2).
-*/
+
 
     
 
@@ -86,8 +84,8 @@ possible_mm_struct(Base_addr) :-
     Offset5 is Offset4 + 8,
     /*
         unsigned long start_code, end_code, start_data, end_data;
-	    unsigned long start_brk, brk, start_stack;
-	    unsigned long arg_start, arg_end, env_start, env_end;
+        unsigned long start_brk, brk, start_stack;
+        unsigned long arg_start, arg_end, env_start, env_end;
     
     */
     islong(Base_addr, Offset6, Value6),
