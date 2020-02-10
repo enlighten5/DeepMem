@@ -8,14 +8,12 @@ possible_task_struct(Base_addr) :-
     /* void *stack */
     ispointer(Base_addr, Stack_offset, Stack_value),
     
-
     /* sched_info sched_info */
     
     ispointer(Base_addr, Sched_info_offset, Sched_info_value),
     Sched_info_offset > Stack_offset,
     possible_sched_info(Sched_info_value),
     
-
     /* list_head tasks */
     ispointer(Base_addr, Tasks_offset, Task_value),
     Tasks_offset > Sched_info_offset,
@@ -28,7 +26,6 @@ possible_task_struct(Base_addr) :-
     /* for struct mm_struct mm */
 	/*possible_mm_struct(mm_offset, base_addr),*/
 
-    
     ispointer(Base_addr, MM_offset, MM_pointer),
     MM_offset < Tgid_offset,
     MM_offset > 400,
@@ -43,8 +40,10 @@ possible_task_struct(Base_addr) :-
 
     isstring(Base_addr, Comm_offset, Comm_value),
     Comm_offset > MM_offset2,
-    list_head_next(Task_value, Tasks_offset, Comm_offset),
 
+    list_head_next(Task_value, List_head_offset),
+
+    /* the recursive rules for list head and task should be here in this file */
 
     /* fs_struct */
     /* files_struct */
@@ -60,16 +59,14 @@ possible_task_struct(Base_addr) :-
     ispointer(Base_addr, Parent_offset, Parent_value),
     Parent_offset > Tgid_offset,
     Parent_offset < Tgid_offset + 20,
-    possible_task_struct(Parent_value),
-    print_nl("parent", Parent_offset).
-/*
-    print_nl("pointer", Parent_value),
-    possible_task_struct(Parent_value),
+    task_struct_r(Parent_value),
+
+    print_nl('parent', Parent_offset),
     print_nl('stack', Stack_offset),
     print_nl('task', Tasks_offset),
     print_nl('pid', Pid_offset),
     print_nl('mm_struct', MM_offset2).
-*/
+
 
     
 
@@ -101,20 +98,19 @@ possible_list_head(Base_addr) :-
     isTrue(Result),
     write(X), nl.
 
-list_head_next(Base_addr, List_head_offset, Comm_offset) :- 
-    /* the knowledge base does not have task struct that contains value1 */
 
-    /* get the *next list head pointer in value1 */
-    ispointer(Base_addr, Offset1, Value1),
-    Offset1 is 0,
-    ispointer(Base_addr, Offset2, Value2),
-    Offset2 is Offset1 + 8,
-    /* *next should be a pointer in another task structure at the same list head offset */
-    ispointer(Task_struct_addr, List_head_offset, Value1),
-    print_nl('task struct', Task_struct_addr),
-    /* a simple rule to make sure task_struct_addr is a task structure by checking whether comm_offset is a string */
-    isstring(Task_struct_addr, Comm_offset, String),
-    print_nl("next one", 'is list head').
+task_struct_r(Base_addr):-
+    process_create(path('python'),
+                    ['query.py', Base_addr, "task_struct"],
+                    [stdout(pipe(In))]),
+    read_string(In, Len, X),
+    string_codes(X, Result),
+    isTrue(Result).
+
+list_head_next(Base_addr, List_head_offset) :- 
+    Task_addr is Base_addr - List_head_offset,
+    task_struct_r(Task_addr).
+
 
 possible_fs_struct(Base_addr) :- 
     process_create(path('python'),

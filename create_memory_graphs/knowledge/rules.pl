@@ -51,7 +51,6 @@ possible_task_struct(Base_addr) :-
 
     isstring(Base_addr, Comm_offset, Comm_value),
     Comm_offset > MM_offset2,
-    list_head_next(Task_value, Tasks_offset, Comm_offset),
 
 
     /* fs_struct */
@@ -68,8 +67,7 @@ possible_task_struct(Base_addr) :-
     ispointer(Base_addr, Parent_offset, Parent_value),
     Parent_offset > Tgid_offset,
     Parent_offset < Tgid_offset + 20,
-    possible_task_struct(Parent_value),
-    print_nl("parent", Parent_offset).
+    print_nl('parent', Parent_offset).
 /*
     print_nl("pointer", Parent_value),
     possible_task_struct(Parent_value),

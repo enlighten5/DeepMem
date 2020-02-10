@@ -1,4 +1,380 @@
-2020-02-09 22:54:25	finish
-2020-02-09 22:54:25	linux-sample-1.bin
-2020-02-09 22:54:25	get available_pages
-2020-02-09 22:54:25	find pointer-dest map
+2020-02-10 04:19:02	finish
+2020-02-10 04:19:02	linux-sample-1.bin
+2020-02-10 04:19:02	get available_pages
+2020-02-10 04:19:03	find pointer-dest map
+1
+
+1
+
+1
+ is mm struct
+"parent":504
+stack:8
+task:368
+pid:484
+mm_struct:432
+"parent":504
+stack:8
+task:368
+pid:484
+mm_struct:432
+1
+ is mm struct
+1
+
+1
+ is mm struct
+"parent":504
+stack:8
+task:376
+pid:484
+mm_struct:432
+"parent":504
+stack:8
+task:376
+pid:484
+mm_struct:432
+1
+ is mm struct
+1
+
+1
+ is mm struct
+"parent":504
+stack:8
+task:392
+pid:484
+mm_struct:432
+"parent":504
+stack:8
+task:392
+pid:484
+mm_struct:432
+1
+ is mm struct
+1
+
+1
+ is mm struct
+"parent":504
+stack:8
+task:400
+pid:484
+mm_struct:432
+"parent":504
+stack:8
+task:400
+pid:484
+mm_struct:432
+1
+ is mm struct
+1
+
+1
+ is mm struct
+"parent":504
+stack:8
+task:408
+pid:484
+mm_struct:432
+"parent":504
+stack:8
+task:408
+pid:484
+mm_struct:432
+1
+ is mm struct
+1
+
+1
+ is mm struct
+"parent":504
+stack:8
+task:416
+pid:484
+mm_struct:432
+"parent":504
+stack:8
+task:416
+pid:484
+mm_struct:432
+1
+ is mm struct
+1
+
+1
+ is mm struct
+"parent":504
+stack:8
+task:424
+pid:484
+mm_struct:432
+"parent":504
+stack:8
+task:424
+pid:484
+mm_struct:432
+1
+ is mm struct
+1
+
+1
+ is mm struct
+"parent":504
+stack:8
+task:432
+pid:484
+mm_struct:432
+"parent":504
+stack:8
+task:432
+pid:484
+mm_struct:432
+1
+ is mm struct
+1
+
+1
+ is mm struct
+1
+
+1
+ is mm struct
+1
+
+1
+ is mm struct
+1
+
+1
+ is mm struct
+1
+
+1
+ is mm struct
+1
+
+1
+ is mm struct
+1
+
+1
+ is mm struct
+1
+
+1
+ is mm struct
+1
+
+1
+ is mm struct
+1
+
+1
+ is mm struct
+1
+
+1
+ is mm struct
+1
+
+1
+ is mm struct
+1
+
+1
+ is mm struct
+1
+
+1
+
+1
+
+1
+
+1
+
+1
+
+1
+
+1
+
+1
+
+1
+
+1
+ is mm struct
+"parent":504
+stack:64
+task:368
+pid:484
+mm_struct:432
+"parent":504
+stack:64
+task:368
+pid:484
+mm_struct:432
+1
+ is mm struct
+1
+
+1
+ is mm struct
+"parent":504
+stack:64
+task:376
+pid:484
+mm_struct:432
+"parent":504
+stack:64
+task:376
+pid:484
+mm_struct:432
+1
+ is mm struct
+1
+
+1
+ is mm struct
+"parent":504
+stack:64
+task:392
+pid:484
+mm_struct:432
+"parent":504
+stack:64
+task:392
+pid:484
+mm_struct:432
+1
+ is mm struct
+1
+
+1
+ is mm struct
+"parent":504
+stack:64
+task:400
+pid:484
+mm_struct:432
+"parent":504
+stack:64
+task:400
+pid:484
+mm_struct:432
+1
+ is mm struct
+1
+
+1
+ is mm struct
+"parent":504
+stack:64
+task:408
+pid:484
+mm_struct:432
+"parent":504
+stack:64
+task:408
+pid:484
+mm_struct:432
+1
+ is mm struct
+1
+
+1
+ is mm struct
+"parent":504
+stack:64
+task:416
+pid:484
+mm_struct:432
+"parent":504
+stack:64
+task:416
+pid:484
+mm_struct:432
+1
+ is mm struct
+1
+
+1
+ is mm struct
+"parent":504
+stack:64
+task:424
+pid:484
+mm_struct:432
+"parent":504
+stack:64
+task:424
+pid:484
+mm_struct:432
+1
+ is mm struct
+1
+
+1
+ is mm struct
+"parent":504
+stack:64
+task:432
+pid:484
+mm_struct:432
+"parent":504
+stack:64
+task:432
+pid:484
+mm_struct:432
+1
+ is mm struct
+1
+
+1
+ is mm struct
+1
+
+1
+ is mm struct
+1
+
+1
+ is mm struct
+1
+
+1
+ is mm struct
+1
+
+1
+ is mm struct
+1
+
+1
+ is mm struct
+1
+
+1
+ is mm struct
+1
+
+1
+ is mm struct
+1
+
+1
+ is mm struct
+1
+
+1
+ is mm struct
+1
+
+1
+ is mm struct
+1
+
+1
+ is mm struct

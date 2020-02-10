@@ -5,7 +5,7 @@ from pyswip.core import *
 from pyswip import *
 import random
 
-PAGE_PATH = './pages/'
+PAGE_PATH = '/home/zhenxiao/DeepMem/create_memory_graphs/pages/'
 MAX_NODE_SIZE = 64
 SEARCH_LEN = 128
 MAX_NODE_COUNT = 220000
@@ -207,7 +207,7 @@ def extract_info(image_path, paddr, size, set_vaddr_page, name, file_h = None):
     return pointer_kb, string_kb, int_kb
 '''
 
-def extract_info_r(image_path, paddr, size, set_vaddr_page, name="placeholder", file_h=None):
+def extract_info_r(image_path, paddr, size, set_vaddr_page, output):
     valid_pointer = {}
     valid_comm = {}
     valid_int = {}
@@ -306,36 +306,33 @@ def extract_info_r(image_path, paddr, size, set_vaddr_page, name="placeholder", 
     #    i += 8 
     image.close()
 
+    kb_all = open(output, 'a')
+    keys = valid_pointer.keys()
+    keys.sort()
+    for key in keys:
+        fact = "ispointer(" + str(paddr) + "," + str(key) + "," + str(valid_pointer[key]) + ")." + "\n"
+        kb_all.write(fact)
+          
+    keys = valid_int.keys()
+    keys.sort()
+    for key in keys:
+        fact = "isint(" + str(paddr) + "," + str(key) + "," + str(valid_int[key]) + ")." + "\n"
+        kb_all.write(fact)
 
-    if not file_h:
-        file_h = open("./pages/temp_kb.pl", 'a')
-        kb_all = file_h
-        keys = valid_pointer.keys()
-        keys.sort()
-        for key in keys:
-            fact = "ispointer(" + str(paddr) + "," + str(key) + "," + str(valid_pointer[key]) + ")." + "\n"
-            kb_all.write(fact)
-            
-        keys = valid_int.keys()
-        keys.sort()
-        for key in keys:
-            fact = "isint(" + str(paddr) + "," + str(key) + "," + str(valid_int[key]) + ")." + "\n"
-            kb_all.write(fact)
-
-        keys = valid_comm.keys()
-        keys.sort()
-        for key in keys:
-            fact = "isstring(" + str(paddr) + "," + str(key) + "," + "string" + ")." + "\n"
-            kb_all.write(fact)
+    keys = valid_comm.keys()
+    keys.sort()
+    for key in keys:
+        fact = "isstring(" + str(paddr) + "," + str(key) + "," + "string" + ")." + "\n"
+        kb_all.write(fact)
         
-        keys = valid_long.keys()
-        keys.sort()
-        for key in keys:
-            fact = "islong(" + str(paddr) + "," + str(key) + "," + str(valid_long[key]) + ")." + "\n"
-            kb_all.write(fact)
+    keys = valid_long.keys()
+    keys.sort()
+    for key in keys:
+        fact = "islong(" + str(paddr) + "," + str(key) + "," + str(valid_long[key]) + ")." + "\n"
+        kb_all.write(fact)
 
-        kb_all.write("\n")
-        file_h.close()
+    kb_all.write("\n")
+    kb_all.close()
     
     return valid_pointer
 
