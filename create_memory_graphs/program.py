@@ -146,6 +146,29 @@ def read_pointer(paddr):
         return target_paddr
 
 
+def extract_list_head(image_path, paddr, size, set_vaddr_page):
+    with open(image_path, 'r') as image:
+        image.seek(paddr)
+        content = image.read(8)
+        next_p = content[0:8]
+        dest = is_valid_pointer_64(next_p, 0, set_vaddr_page)
+        if dest: 
+            next_p = vaddr_to_paddr(int(hex(dest)[:-1], 16))
+        image.seek(paddr + 8)
+        content = image.read(8)
+        prev_p = content[0:8]
+        dest = is_valid_pointer_64(prev_p, 0, set_vaddr_page)
+        if dest: 
+            prev_p = vaddr_to_paddr(int(hex(dest)[:-1], 16))
+
+        if prev_p:
+            print "prev: ", hex(prev_p)
+            image.seek(prev_p - 368 + 920)
+            content = image.read(8)
+            find_comm = content.replace('\x00', '').replace('\xff', '')
+            print find_comm
+            #extract_list_head(image_path, prev_p, size, set_vaddr_page)
+
 def extract_info(image_path, paddr, size, set_vaddr_page, name, file_h = None):
     global info_global
     valid_pointer = {}
@@ -153,15 +176,16 @@ def extract_info(image_path, paddr, size, set_vaddr_page, name, file_h = None):
     valid_int = {}
     with open(image_path, 'r') as image:
         image.seek(paddr)
+        print "base address", hex(paddr)
         content = image.read(size)
         i = 0
         while i < 4096:
             if len(content[i:i+8]) < 8:
                 break
-            if hex(is_user_pointer(content[i:i+8], 0)) == "0x1605000":
+            #if hex(is_user_pointer(content[i:i+8], 0)) == "0x160d3b8":
         #    print "find it at", i
         #if not hex(is_user_pointer(content[i:i+8], 0)) == '0x0':
-                print("raw bytes at ", hex(paddr + i), content[i:i+8], hex(is_user_pointer(content[i:i+8], 0)))
+            print("raw bytes at ", hex(paddr + i), i, content[i:i+8], hex(is_user_pointer(content[i:i+8], 0)))
             i += 8 
 
     #output_dict("./pages/pointer_" + name, valid_pointer, paddr) 
@@ -284,7 +308,7 @@ def extract_info_r(image_path, paddr, size, set_vaddr_page, name="placeholder", 
 
 
     if not file_h:
-        file_h = open("./pages/kb_all.pl", 'a')
+        file_h = open("./pages/temp_kb.pl", 'a')
         kb_all = file_h
         keys = valid_pointer.keys()
         keys.sort()

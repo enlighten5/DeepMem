@@ -16,26 +16,37 @@ def main():
     #addr.sort()
 
 
-    paddr = vaddr_to_paddr(0xFFFF88001C278080) # apache task struct address
+    paddr = vaddr_to_paddr(0xffff88001c2781f0-368) # apache task struct address
     #paddr = 0x160d3b8
     #paddr = 0x1605000
     #paddr = 0
     #while paddr < 4096 * 1024 * 512:
+    
     construct_kb(image_path, paddr, 1024, set_vaddr_page)
-        #extract_info_r(image_path, paddr, 4096, set_vaddr_page, "test")
+    
+    #extract_info(image_path, paddr, 2048, set_vaddr_page, "test")
+    
+    
+    #paddr = vaddr_to_paddr(0xffff88001aca01f0)
+    #paddr = 0x1f0d91b0
+    #extract_list_head(image_path, paddr, 2048, set_vaddr_page)
     #    paddr += 4096
-
+    with open(image_path, 'r') as image:
+        image.seek(530138944+920)
+        content = image.read(8)
+        find_comm = content.replace('\x00', '').replace('\xff', '')
+        print find_comm
     
 
     p = Prolog()
     p.consult("./pages/kb_all.pl")
 #    possible_task_struct = Functor("possible_task_struct", 4)
     count = 0
-    query_cmd = "possible_task_struct(Base_addr, Pid_offset, MM_offset, MM_offset2, MM_pointer)"
+    query_cmd = "possible_task_struct(Base_addr)"
     for s in p.query(query_cmd, catcherrors=False):
         count += 1
         #print(s["Base_addr"], s["Pid_offset"], s["MM_offset"], s["MM_offset2"], s["MM_pointer"])
-        pass
+    #    pass
     print count
 log('finish')
     

@@ -5,7 +5,7 @@ import random
 global image_path
 def main():
     p = Prolog()
-    p.consult("./pages/kb_all.pl")
+    p.consult("./pages/test_py.pl")
     idx = [0, 8, 16, 24, 32, 72, 112, 120, 128, 136]
     idx2 = [0, 4, 8]
 
